@@ -72,13 +72,16 @@ def pretrain(X):
                                       nb_hidden_layers[1:]), start=1):
         print('Training the layer {0}: input {1} -> output {2}'.format(i, n_in, n_out))
         # create AE and training
-        ae = Sequential()
         input_data = Input(shape=(n_in, ))
+        
+        ae = Sequential()
+        
         encoder = Sequential([Dense(output_dim=n_out, input_dim=n_in, activation='relu')])
         decoder = Sequential([Dense(output_dim=n_in, input_dim=n_out, activation='relu')])
 
         ae.add(encoder)
         ae.add(decoder)
+        
         ae.compile(loss='mse', optimizer='adam')
         ae.fit(X_tmp, X_tmp, batch_size=batch_size_pretraining,
                nb_epoch=nb_epoch_pretraining, verbose=True, shuffle=True)
@@ -97,7 +100,22 @@ def pretrain(X):
 def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
     n_in = X.shape[1]
     input_data = Input((n_in, ))
-
+    nb_hidden_layers = [X.shape[1], 500, 100, 20, 2]
+    
+    ae = Sequential()
+    encoder = Sequential()
+    decoder = Sequential()
+    
+    for i, (n_in, n_out) in enumerate(zip(nb_hidden_layers[:-1], nb_hidden_layers[1:])):
+        encoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', weights=encoder_weights[i]))
+   
+    for i, (n_out, n_in) in enumerate(zip(nb_hidden_layers[:-1][::-1], nb_hidden_layers[1:][::-1])):
+        decoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', weights=decoder_weights[len(nb_hidden_layers) - i - 2]))
+    
+    ae.add(encoder)
+    ae.summary()
+    ae.add(decoder)
+    """
     # encoder
     encoded = Dense(500, activation='relu', weights=encoder_weights[0])(input_data)
     encoded = Dense(100, activation='relu', weights=encoder_weights[1])(encoded)
@@ -113,6 +131,8 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
 
     ae = Model(input=input_data, output=decoded)
     encoder = Model(input=input_data, output=encoded)
+    """
+
     ae.compile(loss='mse', optimizer='rmsprop')
     
     # train using stratified kfold
