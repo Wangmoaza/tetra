@@ -106,6 +106,8 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
     encoder = Sequential()
     decoder = Sequential()
     
+    encoder.add(Dropout(0.2, input_shape=(X.shape[1],)))
+    
     for i, (n_in, n_out) in enumerate(zip(nb_hidden_layers[:-1], nb_hidden_layers[1:])):
         encoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', weights=encoder_weights[i]))
    
@@ -141,7 +143,7 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
         for train_index, test_index in skf:
             X_train, X_test = X[train_index], X[test_index]
             ae.fit(X_train, X_train, 
-                            nb_epoch=50, 
+                            nb_epoch=50,
                             batch_size=256, 
                             shuffle=True, 
                             validation_data=(X_test, X_test))
@@ -149,7 +151,7 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
     # train using all data
     else:
         # CHANGED: try validation_split param
-        ae.fit(X, X, nb_epoch=200, batch_size=256, shuffle=True,
+        ae.fit(X, X, nb_epoch=50, batch_size=256, shuffle=True,
                 validation_split=0.1)
 
     encoded_result = encoder.predict(X)
@@ -157,6 +159,8 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
     print "encoded result shape", encoded_result.shape
     print encoded_result
 
+    score = ae.evaluate(X, X, batch_size=256, verbose=1)
+    print type(score)
     return encoded_result
 ### END - finetune
 
