@@ -63,10 +63,11 @@ def plot(result, y, names, title, figName):
 ### END - plot
 
 def mse(true, pred):
-    return np.mean(np.square(true - pred), axis=-1)
+    return np.mean(np.mean(np.square(true - pred), axis=-1))
 
 def main():
     phylum_names = np.load('db2_phylum_names.npy')
+    """
     for phy in phylum_names[:-1]:
         print '******** ' + phy + ' ********'
         X, y, names = load_data(tetraFile='db2_tetra_phylum_' + phy +'.npy', 
@@ -83,6 +84,17 @@ def main():
 
         reconstruct = pca.inverse_transform(result)
         print reconstruct.shape
-        print "MSE: " + str(mse(X, reconstruct).shape)
+        print "MSE: " + str(mse(X, reconstruct))
         print
+    """
+    X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
+                                taxonFile='db2_taxons_top.npy', 
+                                rank=1, minCnt=100)
+
+    pca = PCA(n_components=2)
+    result = pca.fit_transform(X)
+    reconstruct = pca.inverse_transform(result)
+    print reconstruct.shape
+    print "MSE: " + str(mse(X, reconstruct))
+    
 main()

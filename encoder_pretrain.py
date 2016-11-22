@@ -65,8 +65,8 @@ def pretrain(X):
     X_tmp = np.copy(X)
 
     np.random.seed(3)
-    nb_epoch_pretraining = 10
-    batch_size_pretraining = 500
+    nb_epoch_pretraining = 20
+    batch_size_pretraining = 256
 
     for i, (n_in, n_out) in enumerate(zip(nb_hidden_layers[:-1], 
                                       nb_hidden_layers[1:]), start=1):
@@ -97,7 +97,7 @@ def pretrain(X):
     return encoder_weights, decoder_weights
 ### END - def pretrain
 
-def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
+def finetune(X, y, encoder_weights, decoder_weights, title, kfold=True):
     n_in = X.shape[1]
     input_data = Input((n_in, ))
     nb_hidden_layers = [X.shape[1], 500, 100, 20, 2]
@@ -106,61 +106,58 @@ def finetune(X, y, encoder_weights, decoder_weights, kfold=True):
     encoder = Sequential()
     decoder = Sequential()
     
-    encoder.add(Dropout(0.2, input_shape=(X.shape[1],)))
-    
+    #encoder.add(Dropout(0.2, input_shape=(X.shape[1],)))
     for i, (n_in, n_out) in enumerate(zip(nb_hidden_layers[:-1], nb_hidden_layers[1:])):
-        encoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', weights=encoder_weights[i]))
+        encoder.add(Dense(output_dim=n_out, input_dim=n_in, 
+                          activation='relu', weights=encoder_weights[i]))
    
     for i, (n_out, n_in) in enumerate(zip(nb_hidden_layers[:-1][::-1], nb_hidden_layers[1:][::-1])):
-        decoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', weights=decoder_weights[len(nb_hidden_layers) - i - 2]))
+        decoder.add(Dense(output_dim=n_out, input_dim=n_in, activation='relu', 
+                          weights=decoder_weights[len(nb_hidden_layers) - i - 2]))
     
     ae.add(encoder)
-    ae.summary()
     ae.add(decoder)
-    """
-    # encoder
-    encoded = Dense(500, activation='relu', weights=encoder_weights[0])(input_data)
-    encoded = Dense(100, activation='relu', weights=encoder_weights[1])(encoded)
-    encoded = Dense(20, activation='relu', weights=encoder_weights[2])(encoded)
-    encoded = Dense(2, activation='relu', weights=encoder_weights[3])(encoded)
-
-    # decoder
-    decoded = Dense(20, activation='relu', weights=decoder_weights[3])(encoded)
-    decoded = Dense(100, activation='relu', weights=decoder_weights[2])(decoded)
-    decoded = Dense(500, activation='relu', weights=decoder_weights[1])(decoded)
-    decoded = Dense(n_in, weights=decoder_weights[0])(decoded)
-
-
-    ae = Model(input=input_data, output=decoded)
-    encoder = Model(input=input_data, output=encoded)
-    """
 
     ae.compile(loss='mse', optimizer='rmsprop')
+    loss = []
+    val_loss = []
     
     # train using stratified kfold
     if kfold == True:
         skf = StratifiedKFold(y, n_folds = 5) # FIXME
         for train_index, test_index in skf:
             X_train, X_test = X[train_index], X[test_index]
-            ae.fit(X_train, X_train, 
-                            nb_epoch=50,
-                            batch_size=256, 
-                            shuffle=True, 
-                            validation_data=(X_test, X_test))
+            history = ae.fit(X_train, X_train, 
+                             nb_epoch=80, batch_size=256, 
+                             shuffle=True, validation_data=(X_test, X_test))
+            loss += history.history['loss']
+            val_loss += history.history['val_loss']
 
     # train using all data
     else:
         # CHANGED: try validation_split param
-        ae.fit(X, X, nb_epoch=50, batch_size=256, shuffle=True,
-                validation_split=0.1)
+        ae.fit(X, X, nb_epoch=200, batch_size=256, shuffle=True)
+        loss = history.history['loss']
 
     encoded_result = encoder.predict(X)
+    reconstruct = ae.predict(X)
     
     print "encoded result shape", encoded_result.shape
-    print encoded_result
 
-    score = ae.evaluate(X, X, batch_size=256, verbose=1)
-    print type(score)
+    with open('result_score.txt', 'a') as f:
+        f.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(title, 'ae', encoded_result.shape[0], 
+                                                        str(mse(X, reconstruct)), nb_hidden_layers, kfold))
+    
+    # plot model loss
+    plt.figure()
+    plt.plot(loss)
+    plt.plot(val_loss)
+    plt.title('Model Loss of ' + title)
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper right')
+    plt.savefig('model_loss_' + title + '.png')
+    
     return encoded_result
 ### END - finetune
 
@@ -173,7 +170,7 @@ def tsne(X):
 ### END - tsne
 
 
-def plot(result, y, names, title, figName):
+def plot2d(result, y, names, title, figName):
     plt.figure()
 
     for c, i, name in zip("bgrcmykw", list(range(0, len(names))), names):
@@ -181,28 +178,32 @@ def plot(result, y, names, title, figName):
     plt.legend(loc=0, fontsize=10)
     plt.title(title)
     plt.savefig(figName)
-### END - plot
+### END - plot2d
+
+def mse(true, pred):
+    return np.mean(np.mean(np.square(true - pred), axis=-1))
 
 
 def main():
     phylum_names = np.load('db2_phylum_names.npy')
-    """
+    
     for phy in phylum_names[:-1]:
         print '******** ' + phy + '********'
         X, y, names = load_data(tetraFile='db2_tetra_phylum_' + phy +'.npy', 
                                 taxonFile='db2_taxon_phylum_' + phy + '.npy', 
                                 rank=2, minCnt=30)
         encoder_weights, decoder_weights = pretrain(X)
-        result = finetune(X, y, encoder_weights, decoder_weights, kfold=False)
+        result = finetune(X, y, encoder_weights, decoder_weights, phy, kfold=True)
         title = "Encoded TNA of " + phy
         figName = 'encoder_256-500-100-20-10-2_' + phy + '.png'
-        plot(result, y, names, title, figName)
-    """
-    X, y, names = load_data(tetraFile='db2_tetra_phylum_' + 'Firmicutes' +'.npy', 
-                                taxonFile='db2_taxon_phylum_' + "Firmicutes" + '.npy', 
-                                rank=2, minCnt=30)
-    encoder_weights, decoder_weights = pretrain(X)
-    result = finetune(X, y, encoder_weights, decoder_weights, kfold=False)
+        plot2d(result, y, names, title, figName)
+    
+    
+    #X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
+    #                            taxonFile='db2_taxons_top.npy', 
+    #                            rank=1, minCnt=100)
+    #encoder_weights, decoder_weights = pretrain(X)
+    #result = finetune(X, y, encoder_weights, decoder_weights, kfold=True)
     
 
 main()
