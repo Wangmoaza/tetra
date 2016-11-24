@@ -67,7 +67,7 @@ def mse(true, pred):
 
 def main():
     phylum_names = np.load('db2_phylum_names.npy')
-    """
+    
     for phy in phylum_names[:-1]:
         print '******** ' + phy + ' ********'
         X, y, names = load_data(tetraFile='db2_tetra_phylum_' + phy +'.npy', 
@@ -83,9 +83,9 @@ def main():
         plot(result, y, names, title, figName)
 
         reconstruct = pca.inverse_transform(result)
-        print reconstruct.shape
-        print "MSE: " + str(mse(X, reconstruct))
-        print
+    
+        with open('result_score.txt', 'a') as f:
+            f.write("{0}\t{1}\t{2}\t{3}\n".format(title, 'pca', result.shape[0], str(mse(X, reconstruct))))
     """
     X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
                                 taxonFile='db2_taxons_top.npy', 
@@ -96,5 +96,7 @@ def main():
     reconstruct = pca.inverse_transform(result)
     print reconstruct.shape
     print "MSE: " + str(mse(X, reconstruct))
+    """
+    
     
 main()
