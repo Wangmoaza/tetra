@@ -10,7 +10,6 @@ def divide(level, taxonFile, tetraFile, lowerbound):
     tetradic = defaultdict(list)
     taxondic = defaultdict(list)
     nameList = []
-    i = 0
     
     # count samples per each label
     for tax in taxons:
@@ -21,8 +20,8 @@ def divide(level, taxonFile, tetraFile, lowerbound):
         if countdic[key] >= lowerbound:
             nameList.append(key)
     
-    nameList.append('Others')
-    
+    # make dictionaries for tetra and taxon
+    i = 0
     for tax in taxons:
         if tax[level] in nameList:
             tetradic[tax[level]].append(tetra[i, :])
@@ -38,23 +37,25 @@ def divide(level, taxonFile, tetraFile, lowerbound):
     
     # save new datasets
     for key in tetradic.keys():
-        taxName = 'db2_taxon_' + ranks[level] + "_" + key
-        tetraName = 'db2_tetra_' + ranks[level] + "_" + key
-        
-        np.save(taxName, taxondic[key])
-        np.save(tetraName, tetradic[key])
+        if key != 'Others':
+            taxName = 'db2_taxon_' + ranks[level] + "_" + key
+            tetraName = 'db2_tetra_' + ranks[level] + "_" + key
+
+            np.save(taxName, taxondic[key])
+            np.save(tetraName, tetradic[key])
     
     labelName = 'db2_' + ranks[level] + "_names"
     np.save(labelName, nameList)
+    
         
     ### END - for key
 ### END - def divide
-                 
+
+"""
 def main():
     taxonFile = 'db2_taxons_top.npy'
     tetraFile = 'db2_tetra_top.npy'
     divide(1, taxonFile, tetraFile, 500)
 
 main()
-
-        
+"""
