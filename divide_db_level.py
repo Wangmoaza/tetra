@@ -42,13 +42,9 @@ def divide(level, taxonFile, tetraFile, lowerbound):
             tetraName = 'db2_tetra_' + ranks[level] + "_" + key
 
             np.save(taxName, taxondic[key])
-            np.save(tetraName, tetradic[key])
-    
-    labelName = 'db2_' + ranks[level] + "_names"
-    np.save(labelName, nameList)
-    
-        
-    ### END - for key
+            np.save(tetraName, tetradic[key])        
+    ### END - for key  
+    return nameList
 ### END - def divide
 
 """

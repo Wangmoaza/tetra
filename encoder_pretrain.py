@@ -10,7 +10,9 @@ from sklearn.cross_validation import StratifiedKFold
 from sklearn.manifold import TSNE
 from keras import regularizers
 from keras.callbacks import TensorBoard
+from clustering import *
 
+# load dataset
 def load_data(tetraFile, taxonFile, rank, minCnt=10):
     X = np.load(tetraFile)
     taxons = np.load(taxonFile)
@@ -32,9 +34,9 @@ def getTopNames(taxons, rank, minCnt):
             names.append(label)
             print (label, dic.get(label))
     ### END - for label
+
     names.append('Others')
-    
-    print names
+
     return names
 ### END - getTopNames
 
@@ -49,7 +51,7 @@ def label2num(taxons, names, rank):
         if item in names:
             indexList.append(names.index(item))
         else:
-            indexList.append(len(names)-1) # last element is names is 'Others'
+            indexList.append(len(names)-1) # last element is 'Others'
     ### END - for i
         
     for i in range(len(names)):
@@ -57,6 +59,18 @@ def label2num(taxons, names, rank):
     
     return np.asarray(indexList)
 ### END - def label2num
+
+
+def plot2d(result, y, names, title, figName):
+    plt.figure()
+
+    for c, i, name in zip("bgrcmykw", list(range(0, len(names))), names):
+        plt.scatter(result[y==i, 0], result[y==i, 1], c=c, label=name)
+    plt.legend(loc=0, fontsize=10)
+    plt.title(title)
+    plt.savefig(figName + '.png')
+### END - plot2d
+
 
 def pretrain(X):
     encoder_weights = []
@@ -87,6 +101,7 @@ def pretrain(X):
                nb_epoch=nb_epoch_pretraining, verbose=True, shuffle=True)
 
         ae.summary()
+        
         # store trained weight and update training data
         encoder_weights.append(ae.layers[0].get_weights())
         decoder_weights.append(ae.layers[1].get_weights())
@@ -97,7 +112,8 @@ def pretrain(X):
     return encoder_weights, decoder_weights
 ### END - def pretrain
 
-def finetune(X, y, encoder_weights, decoder_weights, title, kfold=True):
+
+def finetune(X, y, encoder_weights, decoder_weights, group, kfold=True):
     n_in = X.shape[1]
     input_data = Input((n_in, ))
     nb_hidden_layers = [X.shape[1], 500, 100, 20, 2]
@@ -139,26 +155,22 @@ def finetune(X, y, encoder_weights, decoder_weights, title, kfold=True):
         ae.fit(X, X, nb_epoch=200, batch_size=256, shuffle=True)
         loss = history.history['loss']
 
-    encoded_result = encoder.predict(X)
-    reconstruct = ae.predict(X)
+    X_2d = encoder.predict(X)
+    X_pred = ae.predict(X_2d)
     
     print "encoded result shape", encoded_result.shape
 
-    with open('result_score.txt', 'a') as f:
-        f.write("{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n".format(title, 'ae', encoded_result.shape[0], 
-                                                        str(mse(X, reconstruct)), nb_hidden_layers, kfold))
-    
     # plot model loss
     plt.figure()
     plt.plot(loss)
     plt.plot(val_loss)
-    plt.title('Model Loss of ' + title)
+    plt.title('Model Loss of ' + group)
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'test'], loc='upper right')
-    plt.savefig('model_loss_' + title + '.png')
+    plt.savefig('model_loss_' + group + '.png')
     
-    return encoded_result
+    return X_2d, mse(X, X_pred)
 ### END - finetune
 
 
@@ -170,40 +182,62 @@ def tsne(X):
 ### END - tsne
 
 
-def plot2d(result, y, names, title, figName):
-    plt.figure()
-
-    for c, i, name in zip("bgrcmykw", list(range(0, len(names))), names):
-        plt.scatter(result[y==i, 0], result[y==i, 1], c=c, label=name)
-    plt.legend(loc=0, fontsize=10)
-    plt.title(title)
-    plt.savefig(figName)
-### END - plot2d
-
 def mse(true, pred):
     return np.mean(np.mean(np.square(true - pred), axis=-1))
 
 
+def perform(rank_num, group):
+    ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+        
+    
+    X, y, names = load_data(tetraFile='db2_tetra_{0}_{1}.npy'.format(ranks[rank_num], group), 
+                            taxonFile='db2_taxon_{0}_{1}.npy'.format(ranks[rank_num], group), 
+                            rank=rank_num+1, minCnt=30)
+    
+    nb_hidden_layers = [X.shape[1], 500, 100, 20, 2]
+    encoder_weights, decoder_weights = pretrain(X)
+    kfold = True
+    X_2d, score = finetune(X, y, encoder_weights, decoder_weights, group, kfold=kfold)
+    
+    # plot 2d
+    title = "Encoded TNA of " + group
+    figName = 'encoder_256-500-100-20-10-2_' + group
+    plot2d(X_2d, y, names, title, figName)
+
+    # clustering
+    print '...clustering'
+    true_clusters = np.unique(y).shape[0] # for cases where there are no 'others'
+    d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_pca')
+    a_homo, a_comp, a_vmes, a_ari = agglomerative(X_2d, true_clusters, y, title = group + '_pca')
+
+
+    # record to file
+    with open('result_score.txt', 'a') as f:
+        general_str = "{rank}\t{group}\t{method}\t{size}\t{mse}\t{layers}\t{kfold}\t".format(rank=ranks[rank_num], group=group, method='pca', 
+                                                                          size=X_2d.shape[0], mse=score, layers=nb_hidden_layers, kfold=kfold)
+        d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp, vmes=d_vmes, ari=d_ari)
+        a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\n".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
+        line = general_str + d_values_str + a_values_str
+        f.write(line)
+    ### END - with open
+### END - perform
+
+
 def main():
-    phylum_names = np.load('db2_phylum_names.npy')
-    
-    for phy in phylum_names[:-1]:
-        print '******** ' + phy + '********'
-        X, y, names = load_data(tetraFile='db2_tetra_phylum_' + phy +'.npy', 
-                                taxonFile='db2_taxon_phylum_' + phy + '.npy', 
-                                rank=2, minCnt=30)
-        encoder_weights, decoder_weights = pretrain(X)
-        result = finetune(X, y, encoder_weights, decoder_weights, phy, kfold=True)
-        title = "Encoded TNA of " + phy
-        figName = 'encoder_256-500-100-20-10-2_' + phy + '.png'
-        plot2d(result, y, names, title, figName)
-    
-    
-    #X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
-    #                            taxonFile='db2_taxons_top.npy', 
-    #                            rank=1, minCnt=100)
-    #encoder_weights, decoder_weights = pretrain(X)
-    #result = finetune(X, y, encoder_weights, decoder_weights, kfold=True)
+    ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+
+    # loop from phylum to family
+    for i in range(1, len(ranks)-2):
+        names = np.load('db2_{0}_names.npy'.format(ranks[i])) # e.g. ranks[i] == class
+        
+        # peform ae
+        for group in names:
+            print '\n'
+            print '******** ' + group + ' ********'
+            perform(i, group)
+        ### END - for group
+    ### END - for i
+### END - main
     
 
 main()
