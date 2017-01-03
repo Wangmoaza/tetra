@@ -8,6 +8,7 @@ from keras.utils import np_utils
 import numpy as np
 from sklearn.cross_validation import StratifiedKFold
 from sklearn.manifold import TSNE
+from sklearn import preprocessing
 from keras import regularizers
 from keras.callbacks import TensorBoard
 from clustering import *
@@ -16,9 +17,11 @@ from clustering import *
 def load_data(tetraFile, taxonFile, rank, minCnt=10):
     X = np.load(tetraFile)
     taxons = np.load(taxonFile)
+    # standardize data
+    X_scaled = preprocessing.scale(X) + 1
     names = getTopNames(taxons, rank, minCnt)
     y = label2num(taxons, names, rank) 
-    return X, y, names
+    return X_scaled, y, names
 ### END - def load_data
 
 
@@ -98,7 +101,7 @@ def pretrain(X):
         
         ae.compile(loss='mse', optimizer='adam')
         ae.fit(X_tmp, X_tmp, batch_size=batch_size_pretraining,
-               nb_epoch=nb_epoch_pretraining, verbose=True, shuffle=True)
+               nb_epoch=nb_epoch_pretraining, verbose=False, shuffle=True)
 
         ae.summary()
         
@@ -122,6 +125,22 @@ def finetune(X, y, encoder_weights, decoder_weights, group, kfold=True):
     encoder = Sequential()
     decoder = Sequential()
     
+    encoded = Dense(500, activation='relu', weights=encoder_weights[0])(input_data)
+    encoded = Dense(100, activation='relu', weights=encoder_weights[1])(encoded)
+    encoded = Dense(20, activation='relu', weights=encoder_weights[2])(encoded)
+    encoded = Dense(2, activation='relu', weights=encoder_weights[3])(encoded)
+ 
+     # decoder
+    decoded = Dense(20, activation='relu', weights=decoder_weights[3])(encoded)
+    decoded = Dense(100, activation='relu', weights=decoder_weights[2])(decoded)
+    decoded = Dense(500, activation='relu', weights=decoder_weights[1])(decoded)
+    decoded = Dense(n_in, weights=decoder_weights[0])(decoded)
+ 
+  
+    ae = Model(input=input_data, output=decoded)
+    encoder = Model(input=input_data, output=encoded)
+    
+    """
     #encoder.add(Dropout(0.2, input_shape=(X.shape[1],)))
     for i, (n_in, n_out) in enumerate(zip(nb_hidden_layers[:-1], nb_hidden_layers[1:])):
         encoder.add(Dense(output_dim=n_out, input_dim=n_in, 
@@ -133,7 +152,8 @@ def finetune(X, y, encoder_weights, decoder_weights, group, kfold=True):
     
     ae.add(encoder)
     ae.add(decoder)
-
+    """
+    
     ae.compile(loss='mse', optimizer='rmsprop')
     loss = []
     val_loss = []
@@ -141,24 +161,29 @@ def finetune(X, y, encoder_weights, decoder_weights, group, kfold=True):
     # train using stratified kfold
     if kfold == True:
         skf = StratifiedKFold(y, n_folds = 5) # FIXME
+        round = 1
         for train_index, test_index in skf:
             X_train, X_test = X[train_index], X[test_index]
             history = ae.fit(X_train, X_train, 
                              nb_epoch=80, batch_size=256, 
-                             shuffle=True, validation_data=(X_test, X_test))
+                             shuffle=True, verbose=False, validation_data=(X_test, X_test))
             loss += history.history['loss']
             val_loss += history.history['val_loss']
-
+            
+            print "...finished round {0} of kfold".format(round)
+            round += 1
     # train using all data
+    
     else:
         # CHANGED: try validation_split param
         ae.fit(X, X, nb_epoch=200, batch_size=256, shuffle=True)
         loss = history.history['loss']
 
+    print "...finished training"
     X_2d = encoder.predict(X)
-    X_pred = ae.predict(X_2d)
+    X_pred = ae.predict(X)
     
-    print "encoded result shape", encoded_result.shape
+    print "encoded result shape", X_2d.shape
 
     # plot model loss
     plt.figure()
@@ -201,42 +226,102 @@ def perform(rank_num, group):
     
     # plot 2d
     title = "Encoded TNA of " + group
-    figName = 'encoder_256-500-100-20-10-2_' + group
+    figName = 'encoder_scaled_2_256-500-100-20-10-2_' + group
     plot2d(X_2d, y, names, title, figName)
 
     # clustering
     print '...clustering'
     true_clusters = np.unique(y).shape[0] # for cases where there are no 'others'
-    d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_pca')
-    a_homo, a_comp, a_vmes, a_ari = agglomerative(X_2d, true_clusters, y, title = group + '_pca')
+    d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_ae_scaled')
+    a_list = agglomerative(X_2d, true_clusters, y, title = group + '_ae_scaled', connect=False)
 
 
     # record to file
     with open('result_score.txt', 'a') as f:
-        general_str = "{rank}\t{group}\t{method}\t{size}\t{mse}\t{layers}\t{kfold}\t".format(rank=ranks[rank_num], group=group, method='pca', 
-                                                                          size=X_2d.shape[0], mse=score, layers=nb_hidden_layers, kfold=kfold)
+        general_str = "{rank}\t{group}\t{method}\t{size}\t{clusters}\t{mse}\t{layers}\t{kfold}\t".format(rank=ranks[rank_num], group=group, 
+                                                                                                         method='ae_scaled', size=X_2d.shape[0],
+                                                                                                         clusters=true_clusters, mse=score,
+                                                                                                         layers=nb_hidden_layers, kfold=kfold)
         d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp, vmes=d_vmes, ari=d_ari)
-        a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\n".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
-        line = general_str + d_values_str + a_values_str
+        line = general_str + d_values_str
+        for a_value in a_list:
+            a_homo, a_comp, a_vmes, a_ari = a_value
+            a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
+            line += a_values_str
+        line += '\n'
         f.write(line)
     ### END - with open
 ### END - perform
 
 
 def main():
+    
+    specificFlag = input("1 for specific, 2 for all under: ")
+    # input validity check
+    while specificFlag not in [1, 2]:
+        specificFlag = eval(input("1 for specific, 2 for all under: "))
+    
     ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+    
+    if specificFlag == 1:
+        X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
+                                taxonFile='db2_taxons_top.npy', 
+                                rank=1, minCnt=500)
 
-    # loop from phylum to family
-    for i in range(1, len(ranks)-2):
-        names = np.load('db2_{0}_names.npy'.format(ranks[i])) # e.g. ranks[i] == class
+        rank_num = 0
+        group = 'All'
+        nb_hidden_layers = [X.shape[1], 500, 100, 20, 2]
+        encoder_weights, decoder_weights = pretrain(X)
+        kfold = True
+        X_2d, score = finetune(X, y, encoder_weights, decoder_weights, group, kfold=kfold)
+
+        # plot 2d
+        title = "Encoded TNA of " + group
+        figName = 'encoder_scaled_256-500-100-20-10-2_' + group
+        plot2d(X_2d, y, names, title, figName)
+
+        # clustering
+        print '...clustering'
+        true_clusters = np.unique(y).shape[0] # for cases where there are no 'others'
+        d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_ae_scaled')
         
-        # peform ae
-        for group in names:
-            print '\n'
-            print '******** ' + group + ' ********'
-            perform(i, group)
-        ### END - for group
-    ### END - for i
+        a_list = agglomerative(X_2d, true_clusters, y, title = group + '_ae_scaled')
+
+
+        # record to file
+        with open('result_score.txt', 'a') as f:
+            general_str = "{rank}\t{group}\t{method}\t{size}\t{clusters}\t{mse}\t{layers}\t{kfold}\t".format(rank=ranks[rank_num], group=group, 
+                                                                                                             method='ae_scaled', size=X_2d.shape[0],
+                                                                                                             clusters=true_clusters, mse=score,
+                                                                                                             layers=nb_hidden_layers, kfold=kfold)
+            d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp, vmes=d_vmes, ari=d_ari)
+            line = general_str + d_values_str
+            for a_value in a_list:
+                a_homo, a_comp, a_vmes, a_ari = a_value
+                a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
+                line += a_values_str
+            line += '\n'
+            f.write(line)
+            #a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\n".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
+            #line = general_str + d_values_str + a_values_str
+            #f.write(line)
+        ### END - with open
+    ### END - specificFlag
+
+    if specificFlag == 2:
+        # loop from phylum to family
+        for i in range(1, len(ranks)-2):
+            names = np.load('db2_{0}_names.npy'.format(ranks[i])) # e.g. ranks[i] == class
+
+            # peform ae
+            for group in names:
+                print '\n'
+                print '******** ' + group + ' ********'
+                perform(i, group)
+            ### END - for group
+        ### END - for i
+    ### END - specific Flag
+    
 ### END - main
     
 

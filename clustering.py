@@ -1,4 +1,5 @@
 from sklearn.cluster import *
+from sklearn.neighbors import kneighbors_graph
 from sklearn import metrics
 import matplotlib
 matplotlib.use('Agg')
@@ -20,16 +21,49 @@ def dbscan(X, true_clusters, true_labels, title=None):
     return evaluate(labels, true_labels)
     
     
-def agglomerative(X, true_clusters, true_labels, title=None):
-    clustering = AgglomerativeClustering(linkage='ward', n_clusters=true_clusters)
-    clustering.fit(X)
-    labels = clustering.labels_
+def agglomerative(X, true_clusters, true_labels, title=None, connect=True, linkage='average'):
+    if connect:
+        knn_graph = kneighbors_graph(X, 30, include_self=False)
+        model = AgglomerativeClustering(linkage=linkage, n_clusters=true_clusters, connectivity=knn_graph)
     
-    fig_title = 'Ward_Agglomerative_' + title
+    else:
+        model = AgglomerativeClustering(linkage=linkage, n_clusters=true_clusters)
+    
+    model.fit(X)
+    labels = model.labels_
+    fig_title = 'Agglomerative_' + title
     plotCluster(X, labels, fig_title)
-    return evaluate(labels, true_labels)
+
+    evalList = []
+    evalList.append(evaluate(labels, true_labels))
+                    
+    """
+    plt.figure(figsize=(10,8))
+    for connectivity in (None, knn_graph):
+        for index, linkage in enumerate(linkages):
+            plt.subplot(2, 3, index + 1)
+            model = AgglomerativeClustering(linkage=linkage, n_clusters=true_clusters)
+            model.fit(X)
+            labels = model.labels_
+            print "...", linkage
+            plt.scatter(X[:, 0], X[:, 1], c=labels, cmap=plt.cm.spectral)
+            plt.title('linkage={0}'.format(linkage), fontdict=dict(verticalalignment='top'))
+            plt.axis('equal')
+            plt.axis('off')
+            plt.subplots_adjust(bottom=0, top=.89, wspace=0, left=0, right=1)
+            plt.suptitle('%s, connectivity=%r' %
+                        (title, connectivity is not None), size=17)
+            evalList.append(evaluate(labels, true_labels))
+        ### END - for index, linkage
+    ### END - for connectivity
     
+    fig_title = 'Agglomerative_' + title
+    plt.savefig(fig_title)
+    """
     
+    return evalList
+    
+
 def evaluate(labels, true_labels):
     homo = metrics.homogeneity_score(true_labels, labels)
     comp = metrics.completeness_score(true_labels, labels)
