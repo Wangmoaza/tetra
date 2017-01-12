@@ -1,5 +1,5 @@
 from sklearn.decomposition import PCA
-from sklearn import preprocessing
+from sklearn.manifold import TSNE
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -7,111 +7,74 @@ import matplotlib.colors as colors
 import numpy as np
 from clustering import *
 from divide_db_level import divide
+from supplementary import *
 
-# load dataset
-def load_data(tetraFile, taxonFile, rank, minCnt=10):
-    X = np.load(tetraFile)
-    # standardize data
-    X_scaled = preprocessing.scale(X) + 1
-    taxons = np.load(taxonFile)
-    names = getTopNames(taxons, rank, minCnt)
-    y = label2num(taxons, names, rank) 
-    return X_scaled, y, names
-### END - def load_data
+# global variable
+global ranks = ["all", "domain", "phylum", "class", "order", "family", "genus", "species"]
 
-
-def getTopNames(taxons, rank, minCnt):
-    # make dictionary {phylumName: count}
-    dic = {}
-    for item in taxons[:, rank]:
-        dic[item] = dic.get(item, 0) + 1
-
-    names = []
-    for label in dic.keys():
-        if dic.get(label) >= minCnt:
-            names.append(label)
-            print (label, dic.get(label))
-    ### END - for label
-
-    names.append('Others')
-
-    return names
-### END - getTopNames
-
-
-def label2num(taxons, names, rank):
-    # make list of phylum names in index 0: Bacteriodetes, etc.
-    labels = taxons[:, rank]
-    indexList = []
-    
-    for i in range(len(labels)):
-        item = labels[i]
-        if item in names:
-            indexList.append(names.index(item))
-        else:
-            indexList.append(len(names)-1) # last element is 'Others'
-    ### END - for i
-        
-    for i in range(len(names)):
-        print i, indexList.count(i)
-    
-    return np.asarray(indexList)
-### END - def label2num
-
-def plot2d(result, y, names, title, figName):
-    plt.figure()
-
-    for c, i, name in zip("bgrcmykw", list(range(0, len(names))), names):
-        plt.scatter(result[y==i, 0], result[y==i, 1], c=c, label=name)
-    plt.legend(loc=0, fontsize=10)
-    plt.title(title)
-    plt.savefig(figName + '.png')
-### END - plot2d
-
-
-def mse(true, pred):
-    return np.mean(np.mean(np.square(true - pred), axis=-1))
-
-
-def perform(rank_num, group):
+def perform(rank_num, group, minCnt=30, tsne=False):
     # perform PCA for group in ranks[rank_num]
     # e.g. perform PCA for Proteobacteria in rank phylum
-    ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
+    print "\n******* {0} *******".format(group)
     
-    X, y, names = load_data(tetraFile='db2_tetra_{0}_{1}.npy'.format(ranks[rank_num], group), 
-                            taxonFile='db2_taxon_{0}_{1}.npy'.format(ranks[rank_num], group), 
-                            rank=rank_num+1, minCnt=30)
+    X, y, names = load_data(tetraFile='db2_tetra_{0}_{1}.npy'.format(ranks[rank_num], group),
+                            taxonFile='db2_taxon_{0}_{1}.npy'.format(ranks[rank_num], group),
+                            rank=rank_num + 1, minCnt=minCnt)
+    # PCA-tSNE
+    if tsne:
+        method = "pca_tsne_scaled"
+        pca = PCA(n_components=32)
+        X_32d = pca.fit_transform(X)
+        pca_tsne = TSNE(learning_rate=800, n_components=2, verbose=1)
+        X_2d = pca_tsne.fit_transform(X_32d)
+        title = "PCA-tSNE of TNA of " + group
+        figName = "PCA-tSNE_{0}_{1}".format(ranks[rank_num][0], group)
+    ### END - if tsne
 
-    # PCA
-    pca = PCA(n_components=2)
-    X_2d = pca.fit_transform(X)
-    print X_2d
+    # only PCA
+    else:
+        method = "pca_scaled"
+        pca = PCA(n_components=2)
+        X_2d = pca.fit_transform(X)
 
-    # plot to 2d space
-    title = "PCA of TNA of " + group
-    figName = 'PCA_' + group
+        title = "PCA of TNA of " + group
+        figName = 'PCA_{0}_{1}'.format(ranks[rank_num][0], group)
+
+        # remap to original space
+        X_pred = pca.inverse_transform(X_2d)
+    ### END - else
+
     plot2d(X_2d, y, names, title, figName)
-    
-    # remap to original space
-    X_pred = pca.inverse_transform(X_2d) 
-    
+
     # clustering
     print '...clustering'
-    true_clusters = np.unique(y).shape[0] # for cases where there are no 'others'
-    d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_pca_scaled')
-    
-    a_list = agglomerative(X_2d, true_clusters, y, title = group + '_pca_scaled', connect=False)
-    
+    name = '{0}_{1}'.format(ranks[rank_num][0], group)
+    clust = Clustering(name, method, X_2d, y)
+    d_homo, d_comp, d_vmes, d_ari = clust.dbscan(10)
+    eval_tuple = clust.agglomerative(linkage='all', connect=False)
+    clust.plotCluster(alg='all')
+
     # record
     with open('result_score.txt', 'a') as f:
-        general_str = "{rank}\t{group}\t{method}\t{size}\t{mse}\t".format(rank=ranks[rank_num], group=group, method='pca_scaled', 
-                                                                          size=X_2d.shape[0], mse=mse(X, X_pred))
-        d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp, vmes=d_vmes, ari=d_ari)
+        if tsne:
+            mse_result = '-'
+        else:
+            mse_result = mse(X, X_pred)
+
+        general_str = "{rank}\t{group}\t{method}\t{size}\t\t{mse}\t\t\t".format(rank=ranks[rank_num],
+                                                                                group=group,
+                                                                          method=method,
+                                                                          size=X_2d.shape[0], mse=mse_result)
+        d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp,
+                                                                                    vmes=d_vmes, ari=d_ari)
         line = general_str + d_values_str
-        for a_value in a_list:
-            a_homo, a_comp, a_vmes, a_ari = a_value
-            a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
+        
+        for i in range(3):
+            a_homo, a_comp, a_vmes, a_ari = eval_tuple[i], eval_tuple[i+1], eval_tuple[i+2], eval_tuple[i+3]
+            a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=a_homo, comp=a_comp,
+                                                                                        vmes=a_vmes, ari=a_ari)
             line += a_values_str
+        ### END - for i
         line += '\n'
         f.write(line)
     ### END - with open
@@ -119,89 +82,42 @@ def perform(rank_num, group):
 
 
 def main():
-    flag = input("1 for specific, 2 for all under: ")
+    flag = input("1 for specific, 2 for all under 3 for etc: ")
     
-    ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
-
     if flag == 2:
         # loop from phylum to family
-        for i in range(1, len(ranks)-2):
+        for i in range(2, len(ranks) - 2):
 
             # generate taxon and tetra file for rank under this rank
             # e.g. if current rank is class, then generate datasets for order
-            names = np.load('db2_{0}_names.npy'.format(ranks[i])) # e.g. ranks[i] == class
-            """
-            under_rank_list = []
-            for group in names:
-                taxonFile = 'db2_taxon_{0}_{1}.npy'.format(ranks[i], group)
-                tetraFile = 'db2_tetra_{0}_{1}.npy'.format(ranks[i], group)
-                if i < 3:
-                    under_ranks = divide(i+1, taxonFile, tetraFile, 300) # e.g. divide by order
-                else:
-                    under_ranks = divide(i+1, taxonFile, tetraFile, 100)
-                under_rank_list = under_rank_list + under_ranks
-            ### END - for group
+            names = np.load('db2_{0}_names.npy'.format(ranks[i]))  # e.g. ranks[i] == class
 
-            labelName = 'db2_{0}_names'.format(ranks[i+1]) # e.g. save order names
-            np.save(labelName, under_rank_list)
-            """
             # peform pca
             for group in names:
-                print '\n'
-                print '******** ' + group + ' ********'
+                print
+                '\n'
+                print
+                '******** ' + group + ' ********'
                 perform(i, group)
-            ### END - for group
-        
-    elif flag == 1: # specific
+                ### END - for group
+                ### END - for i
+    ### END - if flag == 2
+
+    elif flag == 1:  # specific
         rankName = input("taxonomical rank: ")
         taxonName = input("taxon name: ")
-        minCnt = input("minimum count: ")
-        
-        if rankName == 'All':
-            X, y, names = load_data(tetraFile='db2_tetra_top.npy', 
-                            taxonFile='db2_taxons_top.npy', 
-                            rank=1, minCnt=500)
-        else:
-            taxonFile = 'db2_taxon_{0}_{1}.npy'.format(rankName, taxonName)
-            tetraFile = 'db2_tetra_{0}_{1}.npy'.format(rankName, taxonName)
- 
-        perform(ranks.index(rankName), taxonName)
-        X, y, names = load_data(tetraFile=tetraFile, 
-                taxonFile=taxonFile, rank=ranks.index(rankName)+1, minCnt=minCnt)
+        perform(ranks.index(rankName), taxonName, minCnt=30)
+    ### END - elif flag == 1
 
-        # PCA
-        pca = PCA(n_components=2)
-        X_2d = pca.fit_transform(X)
-        print X_2d
+    elif flag == 3:
+        genus_list = np.load('db2_genus_list.npy')
 
-        # plot to 2d space
-        title = "PCA of TNA of " + group
-        figName = 'PCA_' + group
-        plot2d(X_2d, y, names, title, figName)
+        rank_num = 6  # genus
+        for group in genus_list:
+            perform(rank_num, group, minCnt=10, tsne=False)
+            perform(rank_num, group, minCnt=10, tsne=True)
+        ### END - for group
+    ### END - elif flag == 3
+### END - main
 
-        # remap to original space
-        X_pred = pca.inverse_transform(X_2d) 
-
-        # clustering
-        print '...clustering'
-        true_clusters = np.unique(y).shape[0] # for cases where there are no 'others'
-        d_homo, d_comp, d_vmes, d_ari = dbscan(X_2d, true_clusters, y, title = group + '_pca')
-        a_list = agglomerative(X_2d, true_clusters, y, title = group + '_pca')
-
-        # record
-        with open('result_score.txt', 'a') as f:
-            general_str = "{rank}\t{group}\t{method}\t{size}\t{mse}\t".format(rank=ranks[rank_num], group=group, method='pca', 
-                                                                              size=X_2d.shape[0], mse=mse(X, X_pred))
-            d_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=d_homo, comp=d_comp, vmes=d_vmes, ari=d_ari)
-            line = general_str + d_values_str
-            for a_value in a_list:
-                a_homo, a_comp, a_vmes, a_ari = a_value
-                a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\t".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
-                line += a_values_str
-            line += '\n'
-            f.write(line)
-            #a_values_str = "{homo:0.3f}\t{comp:0.3f}\t{vmes:0.3f}\t{ari:0.3f}\n".format(homo=a_homo, comp=a_comp, vmes=a_vmes, ari=a_ari)
-            #line = general_str + d_values_str + a_values_str
-            #f.write(line)
-        
 main()
