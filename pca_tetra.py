@@ -8,6 +8,7 @@ import numpy as np
 from clustering import *
 from divide_db_level import divide
 from supplementary import *
+import time
 
 # global variable
 ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
@@ -25,7 +26,7 @@ def perform(rank_num, group, minCnt=30, dim=2, tsne=False):
     if X.shape[0] == 0:
         print "Error: sample size is 0"
         return
-    
+
     # PCA-tSNE
     if tsne:
         method = "pca_tsne_scaled"
@@ -45,11 +46,11 @@ def perform(rank_num, group, minCnt=30, dim=2, tsne=False):
         pca = PCA(n_components=dim)
         X_2d = pca.fit_transform(X)
         
-        # FIXME
-        with open('result_score.txt', 'a') as f:
-            varMat = pca.explained_variance_ratio_
-            f.write("{0}\t{1}\t{2}\t{3}\n".format(group, varMat[0], varMat[1], varMat[2]))
-        return
+        # FIXME explained ratio printing
+        #with open('result_score.txt', 'a') as f:
+        #    varMat = pca.explained_variance_ratio_
+        #    f.write("{0}\t{1}\t{2}\t{3}\n".format(group, varMat[0], varMat[1], varMat[2]))
+        #return
     
         title = "PCA of TNA of " + group
         figName = 'PCA_{0}_{1}'.format(ranks[rank_num][0], group)
@@ -59,6 +60,14 @@ def perform(rank_num, group, minCnt=30, dim=2, tsne=False):
         X_pred = pca.inverse_transform(X_2d)
     ### END - else
 
+    
+    # FIXME 
+    ###### early stopping for runtime prediction
+    return 
+    ######
+    
+    
+    
     if dim == 2:
         plot2d(X_2d, y, names, title, figName)
     elif dim == 3:
@@ -129,12 +138,14 @@ def main():
 
     elif flag == 3:
         genus_list = np.load('db2_genus_list.npy')
-
         rank_num = ranks.index('genus')
+        
+        t0 = time.time()
         for group in genus_list:
-            perform(rank_num, group, minCnt=10, dim=3, tsne=False)
-            #perform(rank_num, group, minCnt=10, dim=2, tsne=True)
+            #perform(rank_num, group, minCnt=10, dim=2, tsne=False)
+            perform(rank_num, group, minCnt=10, dim=2, tsne=True)
         ### END - for group
+        print "runtime ", time.time() - t0
     ### END - elif flag == 3
 ### END - main
 

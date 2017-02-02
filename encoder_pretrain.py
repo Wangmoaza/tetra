@@ -40,7 +40,7 @@ def pretrain(X, hidden_layers):
         ae.fit(X_tmp, X_tmp, batch_size=batch_size_pretraining,
                nb_epoch=nb_epoch_pretraining, verbose=False, shuffle=True)
 
-        ae.summary()
+        #ae.summary()
 
         # store trained weight and update training data
         encoder_weights.append(ae.layers[0].get_weights())
@@ -174,6 +174,12 @@ def perform(rank_num, group, minCnt=30, dim=2, tsne=False):
         method = 'ae_scaled'
     ### END - else
 
+    
+    #FIXME
+    ##### Early stopping for runtime check
+    return
+    ######
+
     # plot
     if dim == 2:
         plot2d(X_2d, y, names, title, figName)
@@ -226,7 +232,7 @@ def main():
 
     ranks = ["domain", "phylum", "class", "order", "family", "genus", "species"]
 
-    t0 = time()
+    
     if specificFlag == 1:
         rankName = input("taxonomical rank: ")
         taxonName = input("taxon name: ")
@@ -250,8 +256,10 @@ def main():
     elif specificFlag == 3:
         genus_list = np.load('db2_genus_list.npy')
         rank_num = ranks.index('genus')
+        
+        t0 = time()
         for group in genus_list:
-            perform(rank_num, group, minCnt=10, dim=2, tsne=False)
+            #perform(rank_num, group, minCnt=10, dim=2, tsne=False)
             perform(rank_num, group, minCnt=10, dim=2, tsne=True)
         ### END - for group
     ### END - specificFlag == 3
@@ -259,5 +267,5 @@ def main():
 
 ### END - main
 
-
-main()
+if __name__ == '__main__':
+    main()
