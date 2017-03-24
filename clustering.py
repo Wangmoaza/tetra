@@ -14,7 +14,7 @@ class Clustering:
         self.method = method
         self.X = X
         self.db = None  # predicted label in tuple
-        self.agglo = None  # predicted label in tuple
+        self.agglo = None  # predicted label in tuple order 'ward', 'average', 'complete'
         
         if y is None:
             self.y = np.zeros(shape=self.X.shape[0], dtype=int)
@@ -102,7 +102,7 @@ class Clustering:
 
             plt.subplots_adjust(left=0.125, right=0.9, bottom=0.1, top=0.9, wspace=0.2, hspace=0.2)
             plt.suptitle('Clustering of {0}'.format(self.name), size=17)
-            if self.X.shape[1] == 2:
+            if self.X.shape[1] == 3:
                 if num is None:
                     plt.savefig('Clustering_{0}_{1}.png'.format(self.method, self.name))
                 else:
@@ -111,6 +111,7 @@ class Clustering:
                 print "Error: 3d not supported"
         ### END - if alg == all
 
+        # plot single clustering alg
         if alg in ('DBSCAN', 'ward', 'average', 'complete'):
             plt.figure()
             if alg == 'DBSCAN':
@@ -118,7 +119,7 @@ class Clustering:
             else:
                 label = self.agglo[0]
 
-            if self.X.shape[1] == 2:
+            if self.X.shape[1] == 2: # 2-dimensional
                 plt.scatter(self.X[:, 0], self.X[:, 1], c=label, cmap=plt.cm.spectral, s=20)
                 plt.title('{0} of {1}'.format(alg, self.name))
                 if num is None:
@@ -127,15 +128,14 @@ class Clustering:
                     plt.savefig('{0}_{1}_{2}_{3}.png'.format(alg, self.method, self.name, num))
             ### END - self.X.shape[1] == 2
             
-            elif self.X.shape[1] == 3:
+            elif self.X.shape[1] == 3: # 3-dimensional
                 title = "{0} of {1}".format(alg, self.name)
                 figName = '{0}_{1}_{2}'.format(alg, self.method, self.name)
                 if num is not None:
                     figName += '_{0}'.format(num)
                 plot3d(self.X, label, title, figName)
-            ### END - self.X.shape[1] == 2:
-                
-            ### END - if alg in
+            ### END - self.X.shape[1] == 3:
+        ### END - if alg in
     ### END - def plotCluster
 
 
@@ -158,5 +158,30 @@ class Clustering:
         return result
     ### END - def evaluate
     
+    def pred_labels(self, alg):
+        if (alg == 'DBSCAN') and (self.db is not None):
+            return self.db[0]
+        
+        # FIXME
+        # 'average' and 'complete' may not be in that position
+        elif alg == 'ward':
+            try:
+                return self.agglo[0]
+            except:
+                pass
+        elif alg == 'average':
+            try:
+                return self.agglo[1]
+            except:
+                pass
+        elif alg == 'complete':
+            try:
+                return self.agglo[2]
+            except:
+                pass
+        else:
+            print "Error: invalid parameter"
+            return None
+    ### END - def pred_labels
     
 ### END - class Clustering

@@ -80,7 +80,7 @@ def plot2d(result, y, names, title, figName):
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
     # Put a legend to the right of the current axis
-    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize = 'x-small')
     
     plt.xlabel("PC1")
     plt.ylabel("PC2")
