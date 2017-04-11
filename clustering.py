@@ -1,6 +1,7 @@
 from sklearn.cluster import *
 from sklearn.neighbors import kneighbors_graph
 from sklearn import metrics
+from scipy.cluster.hierarchy import dendrogram, linkage
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -9,24 +10,27 @@ from supplementary import *
 
 
 class Clustering:
+    """ This class uses scikit-learn implementation for clustering.
+    
+    Able to conduct agglomerative clustering (ward, average, complete) and DBSCAN
+    """
     def __init__(self, name, method, X, y, n_clusters=None):
         self.name = name
         self.method = method
         self.X = X
         self.db = None  # predicted label in tuple
         self.agglo = None  # predicted label in tuple order 'ward', 'average', 'complete'
-        
+
         if y is None:
             self.y = np.zeros(shape=self.X.shape[0], dtype=int)
         else:
             self.y = y
-        
+
         if n_clusters is None:
             self.n_clusters = np.unique(self.y).shape[0]
         else:
             self.n_clusters = n_clusters
     ### END - def __init__
-
 
     def dbscan(self, min_samples):
         model = DBSCAN(eps=3, min_samples=min_samples)
@@ -40,7 +44,6 @@ class Clustering:
         return self.evaluate(self.db)
     ### END - def dbscan
 
-
     def agglomerative(self, connect=True, linkage='ward'):
         # connectivity constrain
         if connect:
@@ -49,7 +52,6 @@ class Clustering:
             knn_graph = None
 
         if linkage in ('ward', 'average', 'complete'):
-            
             model = AgglomerativeClustering(linkage=linkage,
                                             n_clusters=self.n_clusters,
                                             connectivity=knn_graph)
@@ -79,11 +81,10 @@ class Clustering:
         return self.evaluate(self.agglo)
     ### END - def agglomerative
 
-
     def plotCluster(self, alg='all', num=None):
         titles = ['True Clusters', 'DBSCAN', 'Ward', 'Average', 'Complete']
         labels = [self.y, self.db[0]]
-        
+
         for lab in self.agglo:
             labels.append(lab)
 
@@ -92,21 +93,25 @@ class Clustering:
             plt.figure()
             for i, title, label in zip(range(len(titles)), titles, labels):
                 plt.subplot(2, 3, i + 1)
-                plt.scatter(self.X[:, 0], self.X[:, 1], c=label, cmap=plt.cm.spectral, s=10)
+                plt.scatter(self.X[:, 0], self.X[:, 1],
+                            c=label, cmap=plt.cm.spectral, s=10)
                 plt.title(title, fontdict=dict(verticalalignment='top'))
                 # FIXME
-                #plt.axis('equal')
-                #plt.autoscale()
+                # plt.axis('equal')
+                # plt.autoscale()
                 plt.axis('off')
             ### END - for i, title, label
 
-            plt.subplots_adjust(left=0.125, right=0.9, bottom=0.1, top=0.9, wspace=0.2, hspace=0.2)
+            plt.subplots_adjust(left=0.125, right=0.9,
+                                bottom=0.1, top=0.9, wspace=0.2, hspace=0.2)
             plt.suptitle('Clustering of {0}'.format(self.name), size=17)
             if self.X.shape[1] == 3:
                 if num is None:
-                    plt.savefig('Clustering_{0}_{1}.png'.format(self.method, self.name))
+                    plt.savefig('Clustering_{0}_{1}.png'.format(
+                        self.method, self.name))
                 else:
-                    plt.savefig('Clustering_{0}_{1}_{2}.png'.format(self.method, self.name, num))
+                    plt.savefig('Clustering_{0}_{1}_{2}.png'.format(
+                        self.method, self.name, num))
             elif self.X.shape[1] == 3:
                 print "Error: 3d not supported"
         ### END - if alg == all
@@ -119,16 +124,19 @@ class Clustering:
             else:
                 label = self.agglo[0]
 
-            if self.X.shape[1] == 2: # 2-dimensional
-                plt.scatter(self.X[:, 0], self.X[:, 1], c=label, cmap=plt.cm.spectral, s=20)
+            if self.X.shape[1] == 2:  # 2-dimensional
+                plt.scatter(self.X[:, 0], self.X[:, 1],
+                            c=label, cmap=plt.cm.spectral, s=20)
                 plt.title('{0} of {1}'.format(alg, self.name))
                 if num is None:
-                    plt.savefig('{0}_{1}_{2}.png'.format(alg, self.method, self.name))
+                    plt.savefig('{0}_{1}_{2}.png'.format(
+                        alg, self.method, self.name))
                 else:
-                    plt.savefig('{0}_{1}_{2}_{3}.png'.format(alg, self.method, self.name, num))
+                    plt.savefig('{0}_{1}_{2}_{3}.png'.format(
+                        alg, self.method, self.name, num))
             ### END - self.X.shape[1] == 2
-            
-            elif self.X.shape[1] == 3: # 3-dimensional
+
+            elif self.X.shape[1] == 3:  # 3-dimensional
                 title = "{0} of {1}".format(alg, self.name)
                 figName = '{0}_{1}_{2}'.format(alg, self.method, self.name)
                 if num is not None:
@@ -137,7 +145,6 @@ class Clustering:
             ### END - self.X.shape[1] == 3:
         ### END - if alg in
     ### END - def plotCluster
-
 
     def evaluate(self, labels):
         result = tuple()
@@ -157,11 +164,11 @@ class Clustering:
                 result = result + (metrics.silhouette_score(self.X, label), )
         return result
     ### END - def evaluate
-    
+
     def pred_labels(self, alg):
         if (alg == 'DBSCAN') and (self.db is not None):
             return self.db[0]
-        
+
         # FIXME
         # 'average' and 'complete' may not be in that position
         elif alg == 'ward':
@@ -183,5 +190,69 @@ class Clustering:
             print "Error: invalid parameter"
             return None
     ### END - def pred_labels
-    
 ### END - class Clustering
+
+
+class Scipy_Clustering:
+    """ This class uses scipy implementation to perform hierarchical clustering."""
+
+    def __init__(self, name, method, X, y, n_clusters=None):
+        """
+        Args:
+            name (str): taxon name of the target matrix
+            method (str): dimensionality reduction method
+            X (ndarray): [n_samples, n_features] matrix
+            y (ndarray): true labels of n_samples if exists
+            n_clusters (int): number of clusters if specified
+        """
+        self.name        = name
+        self.method      = method
+        self.X           = X
+        self.Z           = None # linkage matrix
+        self.alg         = None # linkage algorithm
+        self.pred_y      = None # predicted labels
+        if y is None:
+            # set all index to zero if not given
+            self.y       = np.zeros(shape=self.X.shape[0], dtype=int)
+        else:
+            self.y       = y
+
+        if n_clusters is None:
+            self.n_clusters = np.unique(self.y).shape[0]
+        else:
+            self.n_clusters = n_clusters
+    ### END - def __init__
+
+    def set_n_clusters(self, n_clusters):
+        """ sets new n_clusters
+        Args:
+            n_clusters (int): number of clusters
+        """
+        self.n_clusters = n_clusters;
+    ### END - def set_n_cluster
+
+    def plot_cluster(self, num=None):
+        # TODO
+        pass
+
+    def plot_dendrogram(self):
+        # TODO
+        pass
+
+    def cluster(alg='ward', metric='euclidean'):
+        """ performs hierarchical clustering.
+        Args:
+            alg (string): linkage algorithm
+            metric (string): metric
+
+        Returns:
+            predicted labels of the datapoints (ndarray [n_sampes])
+        """
+        self.Z = linkage(self.X, alg) # generate linkage matrix
+        
+        if self.n_clusters == 0:
+            self.pred_y = fcluster(self.Z) # use default inconsistency method
+        else
+            self.pred_y = fclusters(self.Z, t=self.n_clusters, criterion='maxclust')
+
+        return self.pred_y
