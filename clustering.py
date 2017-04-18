@@ -246,10 +246,11 @@ class Scipy_Clustering:
                 plt.savefig('{0}_{1}_{2}_{3}.png'.format(
                     alg, self.method, self.name, num))
         ### END - self.X.shape[1] == 2
-
         elif self.X.shape[1] == 3:  # 3-dimensional
             print("Not Implemented")
         ### END - self.X.shape[1] == 3:
+
+        plt.show()
     ### END - def plot_cluster
 
     def plot_dendrogram(self *args, **kwargs):
