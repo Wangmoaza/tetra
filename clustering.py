@@ -232,12 +232,71 @@ class Scipy_Clustering:
     ### END - def set_n_cluster
 
     def plot_cluster(self, num=None):
-        # TODO
-        pass
+        """ Plot clustered result of data on 2d plane"""
+         plt.figure()
+         alg = 'Ward-scipy'
+        if self.X.shape[1] == 2:  # 2-dimensional
+            plt.scatter(self.X[:, 0], self.X[:, 1],
+                        c=self.pred_y, cmap='prism', s=20)
+            plt.title('{0} of {1}'.format('Ward Clustering', self.name))
+            if num is None:
+                plt.savefig('{0}_{1}_{2}.png'.format(
+                    alg, self.method, self.name))
+            else:
+                plt.savefig('{0}_{1}_{2}_{3}.png'.format(
+                    alg, self.method, self.name, num))
+        ### END - self.X.shape[1] == 2
 
-    def plot_dendrogram(self):
-        # TODO
-        pass
+        elif self.X.shape[1] == 3:  # 3-dimensional
+            print("Not Implemented")
+        ### END - self.X.shape[1] == 3:
+    ### END - def plot_cluster
+
+    def plot_dendrogram(self *args, **kwargs):
+        """ plot and save dendrogram from clustered data using __fancy_dendrogram """
+        plt.figure()
+        self.__fancy_dendrogram(*args, **kwargs)
+        plt.show()
+        plt.savefig('{0}_{1}_{2}.png'.format('dendrogram', self.method, self.name))
+    ### END - def plot_dendrogram
+
+    def __fancy_dendrogram(self, *args, **kwargs):
+        """ private method for plot_dendrogram
+        modified from https://joernhees.de/blog/2015/08/26/scipy-hierarchical-clustering-and-dendrogram-tutorial/
+        Args:
+        """
+        max_d = kwargs.pop('max_d', None)
+        if max_d and 'color_threshold' not in kwargs:
+            kwargs['color_threshold'] = max_d
+        annotate_above = kwargs.pop('annotate_above', 0) 
+
+        ddata = dendrogram(*args, **kwargs)
+
+        if not kwargs.get('no_plot', False):
+            if not kwargs.pop('truncate_mode', None): # truncate_mode ON
+                plt.title('HC Dendrogram of {0} (truncated)'.format(self.name))
+            else:
+                plt.title('HC Dendrogram of {0}'.format(self.name))
+
+            plt.xlabel('sample index or (cluster size)')
+            plt.ylabel('distance')
+            for i, d, c in zip(ddata['icoord'], ddata['dcoord'], ddata['color_list']):
+                x = 0.5 * sum(i[1:3])
+                y = d[1]
+                if y > annotate_above:
+                    plt.plot(x, y, 'o', c=c)
+                    plt.annotate("%.3g" % y, (x, y), xytext=(0, -5),
+                                 textcoords='offset points',
+                                 va='top', ha='center')
+                ### END - if y
+            ### END - for i, d, c
+
+            if max_d:
+                plt.axhline(y=max_d, c='k')
+        ### END - if not
+        
+        return ddata
+    ### END - fancy dendrogram
 
     def cluster(alg='ward', metric='euclidean'):
         """ performs hierarchical clustering.
@@ -256,3 +315,4 @@ class Scipy_Clustering:
             self.pred_y = fclusters(self.Z, t=self.n_clusters, criterion='maxclust')
 
         return self.pred_y
+    ### END - def cluster
