@@ -1,7 +1,7 @@
 from sklearn.cluster import *
 from sklearn.neighbors import kneighbors_graph
 from sklearn import metrics
-from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.cluster.hierarchy import *
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -298,6 +298,41 @@ class Scipy_Clustering:
         
         return ddata
     ### END - fancy dendrogram
+
+    def dendrogram_to_newick(self):
+        """ Convert Dendrogram to newick format. """
+        # FIXME
+        # how do I make leaf_names (lisft with names of leaves)
+        tree = to_tree(self.Z)
+        self.__getNewick(tree, "", tree.dist, leaf_names)
+    ### END - dendrogram_to_newick
+
+    def __getNewick(self, node, newick, parentdist, leaf_names):
+        """ private method for dendrogram_to_newick.
+        modified from http://stackoverflow.com/questions/28222179/save-dendrogram-to-newick-format
+        
+        Args:
+            node (ClusterNode object): tree
+            newick (str): tranformed newick format
+            parentdist:
+            leaf_names
+        
+        Returns:
+            newick
+        """
+        if node.is_leaf():
+            return "%s:%.2f%s" % (leaf_names[node.id], parentdist - node.dist, newick)
+        else:
+            if len(newick) > 0:
+                newick = "):%.2f%s" % (parentdist - node.dist, newick)
+            else:
+                newick = ");"
+            newick = self.__getNewick(node.get_left(), newick, node.dist, leaf_names)
+            newick = self.__getNewick(node.get_right(), ",%s" % (newick), node.dist, leaf_names)
+            newick = "(%s" % (newick)
+        
+        return newick
+    ### END - def __getNewick
 
     def cluster(alg='ward', metric='euclidean'):
         """ performs hierarchical clustering.
