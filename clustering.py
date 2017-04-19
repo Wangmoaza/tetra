@@ -7,6 +7,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from supplementary import *
+from scipy.spatial.distance import pdist
 
 
 class Clustering:
@@ -196,7 +197,7 @@ class Clustering:
 class Scipy_Clustering:
     """ This class uses scipy implementation to perform hierarchical clustering."""
 
-    def __init__(self, name, method, X, y, n_clusters=None):
+    def __init__(self, X, y=None, name='name', method='method', ids=None, n_clusters=None):
         """
         Args:
             name (str): taxon name of the target matrix
@@ -207,6 +208,7 @@ class Scipy_Clustering:
         """
         self.name        = name
         self.method      = method
+        self.ids         = ids # NCBI project access id list
         self.X           = X
         self.Z           = None # linkage matrix
         self.alg         = None # linkage algorithm
@@ -304,7 +306,7 @@ class Scipy_Clustering:
         # FIXME
         # how do I make leaf_names (lisft with names of leaves)
         tree = to_tree(self.Z)
-        self.__getNewick(tree, "", tree.dist, leaf_names)
+        self.__getNewick(tree, "", tree.dist, self.ids)
     ### END - dendrogram_to_newick
 
     def __getNewick(self, node, newick, parentdist, leaf_names):
@@ -345,6 +347,10 @@ class Scipy_Clustering:
         """
         self.Z = linkage(self.X, alg) # generate linkage matrix
         
+        # calculate cophnenetic correlation coefficient
+        c, coph_dists = cophenet(self.Z, pdist(self.X))
+        print "cophenetic correlation coefficient: {0}".format(c)
+
         if self.n_clusters == 0:
             self.pred_y = fcluster(self.Z) # use default inconsistency method
         else
@@ -352,3 +358,6 @@ class Scipy_Clustering:
 
         return self.pred_y
     ### END - def cluster
+### END - class Scipy_Clustering
+
+def newick_to_linkage()
