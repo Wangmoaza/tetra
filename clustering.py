@@ -7,8 +7,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from supplementary import *
-from scipy.spatial.distance import pdist
-
+from scipy.spatial.distance import *
+from ete3 import ClusterTree, TreeStyle
+from itertools import combinations
 
 class Clustering:
     """ This class uses scikit-learn implementation for clustering.
@@ -360,4 +361,27 @@ class Scipy_Clustering:
     ### END - def cluster
 ### END - class Scipy_Clustering
 
-def newick_to_linkage()
+def newick_to_linkage(filePath):
+    """ converts newick tree to scipy linkage matrix """
+    tree                   = ClusterTree(filePath)
+    leaves                 = tree.get_leaf_names()
+    ts                     = TreeStyle()
+    ts.show_leaf_name      = True
+    ts.show_branch_length  = True
+    ts.show_branch_support = True
+
+    idx_dict = {}
+    idx = 0
+    for leaf in leaves:
+        idx_dict[leaf] = idx
+        idx += 1
+
+    idx_labels = [idx_dict.keys()[idx_dict.values().index(i)] for i in range(len(idx_dict))]
+
+    dmat = np.zeros(()) # FIXME need to understand
+
+    for leaf1, leaf2 in combinations(leaves, 2):
+        d = tree.get_distance(leaf1, leaf2)
+        dmat[idx_dict[leaf1], idx_dict[leaf2]] = dmat[idx_dict[leaf2], idx_dict[leaf1]] = d
+        
+
