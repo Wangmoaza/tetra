@@ -206,6 +206,7 @@ class Scipy_Clustering:
             X (ndarray): [n_samples, n_features] matrix
             y (ndarray): true labels of n_samples if exists
             n_clusters (int): number of clusters if specified
+            ids (ndarray or list): list of NCBI project access ids
         """
         self.name        = name
         self.method      = method
@@ -378,10 +379,11 @@ def newick_to_linkage(filePath):
 
     idx_labels = [idx_dict.keys()[idx_dict.values().index(i)] for i in range(len(idx_dict))]
 
-    dmat = np.zeros(()) # FIXME need to understand
+    dmat = np.zeros((len(leaves), len(leaves))) # FIXME need to understand
 
     for leaf1, leaf2 in combinations(leaves, 2):
         d = tree.get_distance(leaf1, leaf2)
         dmat[idx_dict[leaf1], idx_dict[leaf2]] = dmat[idx_dict[leaf2], idx_dict[leaf1]] = d
-        
+
+    schlink = sch.linkage(scipy.spatial.distance.squareform(dmat),method='average',metric='euclidean')
 

@@ -83,6 +83,12 @@ def cluster(X_2d, method):
             f.write("{0}\t{1}\t{2}\t{3}\n".format(method, i, eval_tuple_db[0], string[:-1]))
 ### END - def cluster
 
+def scipy_cluster(X_2d, method):
+    ids = np.load()
+    for i in range(2, 6):
+        clust = Scipy_Clustering(X_2d, name=species, method=method, ids=ids, n_clusters=i)
+
+
 def ae(X, encoder_weights, decoder_weights, hidden_layers):
     # finetune
     n_in = X.shape[1]
