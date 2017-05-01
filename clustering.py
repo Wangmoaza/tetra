@@ -257,10 +257,13 @@ class Scipy_Clustering:
         plt.show()
     ### END - def plot_cluster
 
-    def plot_dendrogram(self *args, **kwargs):
+    def plot_dendrogram(self, truncate_mode=None):
         """ plot and save dendrogram from clustered data using __fancy_dendrogram """
         plt.figure()
-        self.__fancy_dendrogram(*args, **kwargs)
+        self.__fancy_dendrogram(self.Z, truncate_mode=truncate_mode,
+            p=20, leaf_rotation=90., leaf_font_size=12., 
+            show_contracted=True, annotate_above=10)
+
         plt.show()
         plt.savefig('{0}_{1}_{2}.png'.format('dendrogram', self.method, self.name))
     ### END - def plot_dendrogram
@@ -311,7 +314,7 @@ class Scipy_Clustering:
         self.__getNewick(tree, "", tree.dist, self.ids)
     ### END - dendrogram_to_newick
 
-    def __getNewick(self, node, newick, parentdist, leaf_names):
+    def __getNewick(self, node, newick="", parentdist=None, leaf_names=None):
         """ private method for dendrogram_to_newick.
         modified from http://stackoverflow.com/questions/28222179/save-dendrogram-to-newick-format
         
@@ -324,8 +327,15 @@ class Scipy_Clustering:
         Returns:
             newick
         """
+
+        # validity check
+        if leaf_names is None:
+            print ("ERROR: no leaf names")
+            return
+
         if node.is_leaf():
             return "%s:%.2f%s" % (leaf_names[node.id], parentdist - node.dist, newick)
+        
         else:
             if len(newick) > 0:
                 newick = "):%.2f%s" % (parentdist - node.dist, newick)
@@ -356,7 +366,7 @@ class Scipy_Clustering:
         if self.n_clusters == 0:
             self.pred_y = fcluster(self.Z) # use default inconsistency method
         else
-            self.pred_y = fclusters(self.Z, t=self.n_clusters, criterion='maxclust')
+            self.pred_y = fclugsters(self.Z, t=self.n_clusters, criterion='maxclust')
 
         return self.pred_y
     ### END - def cluster

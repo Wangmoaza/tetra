@@ -83,11 +83,12 @@ def cluster(X_2d, method):
             f.write("{0}\t{1}\t{2}\t{3}\n".format(method, i, eval_tuple_db[0], string[:-1]))
 ### END - def cluster
 
-def scipy_cluster(X_2d, method):
-    ids = np.load()
-    for i in range(2, 6):
-        clust = Scipy_Clustering(X_2d, name=species, method=method, ids=ids, n_clusters=i)
-
+def scipy_cluster(X_2d, method="", ids=None):
+    clust = Scipy_Clustering(X_2d, name=species, method=method, ids=ids, n_clusters=2)
+    clust.cluster()
+    clust.plot_cluster()
+    clust.plot_dendrogram()
+    # FIXME start from here!
 
 def ae(X, encoder_weights, decoder_weights, hidden_layers):
     # finetune
@@ -188,7 +189,10 @@ def main():
     #perform_AE(X, tsne=False)
     #perform_AE(X, tsne=True)
     #screen_non_pylori()
-    compare('ae_tsne_scaled', 'pca_tsne_scaled')
+    #compare('ae_tsne_scaled', 'pca_tsne_scaled')
+    X_2d = np.load('s_Helicobacter_pylori_pca_tsne_scaled_X_2d.npy')
+    ids = np.load('Helicobacter_pylori_ids.npy')
+    scipy_cluster(X_2d, method='pca_tsne_scaled', ids=ids)
 
     
 if __name__ == '__main__':
