@@ -228,27 +228,25 @@ class Scipy_Clustering:
     ### END - def __init__
 
     def set_n_clusters(self, n_clusters):
-        """ sets new n_clusters
+        """ sets new n_clusters and re-cluster
         Args:
             n_clusters (int): number of clusters
         """
-        self.n_clusters = n_clusters;
+        self.n_clusters = n_clusters
+        self.cluster()
     ### END - def set_n_cluster
 
-    def plot_cluster(self, num=None):
+    def plot_cluster(self):
         """ Plot clustered result of data on 2d plane"""
-         plt.figure()
-         alg = 'Ward-scipy'
+        plt.figure()
+        alg = 'Ward-scipy'
         if self.X.shape[1] == 2:  # 2-dimensional
             plt.scatter(self.X[:, 0], self.X[:, 1],
                         c=self.pred_y, cmap='prism', s=20)
-            plt.title('{0} of {1}'.format('Ward Clustering', self.name))
-            if num is None:
-                plt.savefig('{0}_{1}_{2}.png'.format(
-                    alg, self.method, self.name))
-            else:
-                plt.savefig('{0}_{1}_{2}_{3}.png'.format(
-                    alg, self.method, self.name, num))
+            plt.title('{0} of {1} ({2} clusters)'.format('Ward Clustering', 
+                                                         self.name, self.n_clusters))
+                      
+            plt.savefig('{0}_{1}_{2}_{3}.png'.format(alg, self.method, self.name, self.n_clusters))
         ### END - self.X.shape[1] == 2
         elif self.X.shape[1] == 3:  # 3-dimensional
             print("Not Implemented")
@@ -257,12 +255,12 @@ class Scipy_Clustering:
         plt.show()
     ### END - def plot_cluster
 
-    def plot_dendrogram(self, truncate_mode=None):
+    def plot_dendrogram(self, truncate_mode=None, max_d=0):
         """ plot and save dendrogram from clustered data using __fancy_dendrogram """
         plt.figure()
         self.__fancy_dendrogram(self.Z, truncate_mode=truncate_mode,
             p=20, leaf_rotation=90., leaf_font_size=12., 
-            show_contracted=True, annotate_above=10)
+            show_contracted=True, annotate_above=10, max_d=max_d)
 
         plt.show()
         plt.savefig('{0}_{1}_{2}.png'.format('dendrogram', self.method, self.name))
@@ -348,7 +346,7 @@ class Scipy_Clustering:
         return newick
     ### END - def __getNewick
 
-    def cluster(alg='ward', metric='euclidean'):
+    def cluster(self, alg='ward', metric='euclidean'):
         """ performs hierarchical clustering.
         Args:
             alg (string): linkage algorithm
@@ -365,8 +363,8 @@ class Scipy_Clustering:
 
         if self.n_clusters == 0:
             self.pred_y = fcluster(self.Z) # use default inconsistency method
-        else
-            self.pred_y = fclugsters(self.Z, t=self.n_clusters, criterion='maxclust')
+        else:
+            self.pred_y = fcluster(self.Z, t=self.n_clusters, criterion='maxclust')
 
         return self.pred_y
     ### END - def cluster

@@ -30,7 +30,7 @@ def perform_PCA(X, dim=2, tsne=False):
     # clustering
     print('***** ' + method + ' *****')
     cluster(X_2d, method)
-    np.save("{0}_{1}_X_2d".format(species, method), X_2d)
+    np.save("{0}_{1}_X_2d".format(species, method), X_2d) # save reduced 2d tetra file
 ### END - def perform_PCA
 
 
@@ -79,7 +79,7 @@ def cluster(X_2d, method):
         clust.plotCluster(alg='all', num=i)
         clust.plotCluster(alg='ward', num=i)
         
-        with open("h_pylori_record.txt", "a") as f:
+        with open("c_jejuni_record.txt", "a") as f:
             f.write("{0}\t{1}\t{2}\t{3}\n".format(method, i, eval_tuple_db[0], string[:-1]))
 ### END - def cluster
 
@@ -87,7 +87,11 @@ def scipy_cluster(X_2d, method="", ids=None):
     clust = Scipy_Clustering(X_2d, name=species, method=method, ids=ids, n_clusters=2)
     clust.cluster()
     clust.plot_cluster()
-    clust.plot_dendrogram()
+    clust.plot_dendrogram(truncate_mode='lastp', max_d=250)
+    for i in range(3, 5):
+        clust.set_n_clusters(i)
+        clust.plot_cluster()
+
     # FIXME start from here!
 
 def ae(X, encoder_weights, decoder_weights, hidden_layers):
@@ -144,12 +148,7 @@ def screen_non_pylori():
     ### END - for i
 ### END - def screen
 
-def compare(method1, method2):
-    file_list = ['s_Helicobacter_pylori_ae_scaled_X_2d.npy', 
-                 's_Helicobacter_pylori_ae_tsne_scaled_X_2d.npy',
-                 's_Helicobacter_pylori_pca_scaled_X_2d.npy',
-                 's_Helicobacter_pylori_pca_tsne_scaled_X_2d.npy']
-    
+def compare(method1, method2, fig=False):
     X1 = np.load('{0}_{1}_X_2d.npy'.format(species, method1))
     X2 = np.load('{0}_{1}_X_2d.npy'.format(species, method2))
     
@@ -164,15 +163,16 @@ def compare(method1, method2):
         label1 = clust1.pred_labels('ward')
         label2 = clust2.pred_labels('ward')
         
-        if i == 3:
+        
+        if i == 3 and fig:
             names = np.unique(label1)
-            figName = 's_Helicobacter_pylori_{0}_on_{1}'.format(method1, method2)
+            figName = '{0}_{1}_on_{2}'.format(species, method1, method2)
             plot2d(X2, label1, names, figName, figName)
 
             names = np.unique(label2)
-            figName = 's_Helicobacter_pylori_{0}_on_{1}'.format(method2, method1)
+            figName = '{0}_{1}_on_{2}'.format(species, method2, method1)
             plot2d(X1, label2, names, figName, figName)
-        
+    
         print '{0}\t{1}\t{2}\t{3}\t{4}\n'.format(i, metrics.homogeneity_score(label1, label2),
                                                 metrics.completeness_score(label1, label2),
                                                 metrics.normalized_mutual_info_score(label1, label2),
@@ -183,12 +183,13 @@ def compare(method1, method2):
 ### END - def compare
 
 def main():
-    #X = np.load('Vibrio_cholerae_tetra.npy')
+    X = np.load('Campylobacter_jejuni_tetra.npy')
     #perform_PCA(X, tsne=False)
     #perform_PCA(X, tsne=True)
     #perform_AE(X, tsne=False)
     #perform_AE(X, tsne=True)
     #screen_non_pylori()
+    #compare('ae_tsne_scaled', 'pca_tsne_scaled', fig=True)
     #compare('ae_tsne_scaled', 'pca_tsne_scaled')
     X_2d = np.load('s_Helicobacter_pylori_pca_tsne_scaled_X_2d.npy')
     ids = np.load('Helicobacter_pylori_ids.npy')
