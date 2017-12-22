@@ -177,14 +177,14 @@ def perform(rank_num, group, minCnt=30, dim=2, tsne=False):
     
     #FIXME
     ##### Early stopping for runtime check
-    return
+    #return
     ######
 
     # plot
-    if dim == 2:
-        plot2d(X_2d, y, names, title, figName)
-    elif dim == 3:
-        plot3d(X_2d, y, title, figName, names=names)
+    #if dim == 2:
+    #    plot2d(X_2d, y, names, title, figName)
+    #elif dim == 3:
+    #    plot3d(X_2d, y, title, figName, names=names)
 
     # clustering
     print '...clustering'
@@ -259,8 +259,8 @@ def main():
         
         t0 = time()
         for group in genus_list:
-            #perform(rank_num, group, minCnt=10, dim=2, tsne=False)
-            perform(rank_num, group, minCnt=10, dim=2, tsne=True)
+            perform(rank_num, group, minCnt=10, dim=2, tsne=False)
+            #perform(rank_num, group, minCnt=10, dim=2, tsne=True)
         ### END - for group
     ### END - specificFlag == 3
     print "running time: {0}s".format(time() - t0)

@@ -85,13 +85,13 @@ class Clustering:
 
     def plotCluster(self, alg='all', num=None):
         titles = ['True Clusters', 'DBSCAN', 'Ward', 'Average', 'Complete']
-        labels = [self.y, self.db[0]]
-
-        for lab in self.agglo:
-            labels.append(lab)
 
         # plot all clustering alg
         if alg == 'all':
+            labels = [self.y, self.db[0]]
+            for lab in self.agglo:
+                labels.append(lab)
+            
             plt.figure()
             for i, title, label in zip(range(len(titles)), titles, labels):
                 plt.subplot(2, 3, i + 1)
@@ -151,7 +151,7 @@ class Clustering:
     def evaluate(self, labels):
         result = tuple()
         # true_label provided
-        if self.n_clusters is None:
+        if self.n_clusters is not None:
             for label in labels:
                 ami = metrics.adjusted_mutual_info_score(self.y, label)
                 nmi = metrics.normalized_mutual_info_score(self.y, label)
@@ -235,7 +235,10 @@ class Scipy_Clustering:
         self.n_clusters = n_clusters
         self.cluster()
     ### END - def set_n_cluster
-
+    
+    def get_linkage(self):
+        return self.Z
+    
     def plot_cluster(self):
         """ Plot clustered result of data on 2d plane"""
         plt.figure()
@@ -309,7 +312,7 @@ class Scipy_Clustering:
         # FIXME
         # how do I make leaf_names (lisft with names of leaves)
         tree = to_tree(self.Z)
-        self.__getNewick(tree, "", tree.dist, self.ids)
+        return self.__getNewick(tree, "", tree.dist, self.ids)
     ### END - dendrogram_to_newick
 
     def __getNewick(self, node, newick="", parentdist=None, leaf_names=None):

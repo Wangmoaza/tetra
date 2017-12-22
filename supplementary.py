@@ -69,7 +69,7 @@ def label2num(taxons, names, rank):
 
 
 def plot2d(result, y, names, title, figName):
-    fig = plt.figure()
+    fig = plt.figure(figsize=(400, 400))
     ax = plt.subplot(111)
     for i, name in enumerate(names):
         ax.scatter(result[y == i, 0], result[y == i, 1], 

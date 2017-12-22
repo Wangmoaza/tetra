@@ -8,7 +8,7 @@ from clustering import *
 from supplementary import *
 from encoder_pretrain import *
 
-species = "s_Helicobacter_pylori"
+species = "s_Campylobacter_jejuni"
 
 def perform_PCA(X, dim=2, tsne=False):
     # PCA-tSNE
@@ -86,13 +86,14 @@ def cluster(X_2d, method):
 def scipy_cluster(X_2d, method="", ids=None):
     clust = Scipy_Clustering(X_2d, name=species, method=method, ids=ids, n_clusters=2)
     clust.cluster()
-    clust.plot_cluster()
-    clust.plot_dendrogram(truncate_mode='lastp', max_d=250)
-    for i in range(3, 5):
-        clust.set_n_clusters(i)
-        clust.plot_cluster()
-
-    # FIXME start from here!
+    #clust.plot_cluster()
+    #clust.plot_dendrogram(truncate_mode='lastp', max_d=250)
+    #for i in range(3, 5):
+    #    clust.set_n_clusters(i)
+    #    clust.plot_cluster()
+    with open("{0}_{1}_newick.nwk".format(species, method), "w") as f:
+        f.write(clust.dendrogram_to_newick())
+### END - def scipy_cluster
 
 def ae(X, encoder_weights, decoder_weights, hidden_layers):
     # finetune
@@ -183,7 +184,7 @@ def compare(method1, method2, fig=False):
 ### END - def compare
 
 def main():
-    X = np.load('Campylobacter_jejuni_tetra.npy')
+    #X = np.load('Campylobacter_jejuni_tetra.npy')
     #perform_PCA(X, tsne=False)
     #perform_PCA(X, tsne=True)
     #perform_AE(X, tsne=False)
@@ -191,9 +192,13 @@ def main():
     #screen_non_pylori()
     #compare('ae_tsne_scaled', 'pca_tsne_scaled', fig=True)
     #compare('ae_tsne_scaled', 'pca_tsne_scaled')
-    X_2d = np.load('s_Helicobacter_pylori_pca_tsne_scaled_X_2d.npy')
-    ids = np.load('Helicobacter_pylori_ids.npy')
-    scipy_cluster(X_2d, method='pca_tsne_scaled', ids=ids)
+
+    ids = np.load('s_Campylobacter_jejuni_profile.npy')
+    method_list = ['ae_tsne_scaled', 'ae_scaled', 'pca_scaled', 'pca_tsne_scaled']
+    
+    for method in method_list:
+        X_2d = np.load('s_Campylobacter_jejuni_{0}_X_2d.npy'.format(method))
+        scipy_cluster(X_2d, method=method, ids=ids)
 
     
 if __name__ == '__main__':
